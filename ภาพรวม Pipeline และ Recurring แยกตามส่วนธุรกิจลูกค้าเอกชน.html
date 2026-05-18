@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="UTF-8"><title>ภาพรวม Pipeline และ Recurring แยกตามส่วนธุรกิจลูกค้าเอกชน</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#f0f4f8; }
+  body { font-family:'Sarabun',sans-serif; color:#1a2332; display:flex; align-items:flex-start; justify-content:center; }
+  #scaler { width:1400px; padding:16px 24px; transform-origin:top center; }
+  .header { color:white; padding:12px 24px; border-radius:12px; margin-bottom:10px; position:relative; overflow:hidden; }
+  .header h1 { font-family:'IBM Plex Sans Thai',sans-serif; font-size:20px; font-weight:700; margin-bottom:2px; }
+  .header .subtitle { font-size:12px; opacity:0.75; font-weight:300; }
+  .header .badge { display:inline-block; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:2px 12px; font-size:11px; margin-top:4px; }
+  .summary-row { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:10px; }
+  .sum-card { background:white; border-radius:10px; padding:8px 14px; border-left:4px solid; box-shadow:0 2px 6px rgba(0,0,0,0.06); }
+  .sum-card.pipeline { border-color:#2d7dd2; } .sum-card.recurring { border-color:#28a074; } .sum-card.total { border-color:#e67e22; } .sum-card.top { border-color:#8e44ad; }
+  .sum-card .card-label { font-size:10px; color:#7f8fa4; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px; }
+  .sum-card .card-value { font-size:17px; font-weight:700; margin-bottom:1px; }
+  .sum-card.pipeline .card-value { color:#2d7dd2; } .sum-card.recurring .card-value { color:#28a074; } .sum-card.total .card-value { color:#e67e22; } .sum-card.top .card-value { color:#8e44ad; }
+  .sum-card .card-sub { font-size:10px; color:#9aa5b4; }
+  .section { background:white; border-radius:10px; padding:10px 14px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:10px; }
+  .section-title { font-size:12px; font-weight:700; color:#1a2332; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  .section-title span { display:inline-block; width:3px; height:14px; border-radius:2px; }
+  .section-title span.blue { background:#2d7dd2; } .section-title span.green { background:#28a074; } .section-title span.orange { background:#e67e22; } .section-title span.purple { background:#8e44ad; }
+  table { width:100%; border-collapse:collapse; font-size:11px; }
+  thead th { padding:5px 6px; text-align:center; font-weight:600; font-size:10px; border-bottom:2px solid #e2e8f0; }
+  thead th.left { text-align:left; background:#f0f4f8; color:#4a5568; }
+  thead th.pipeline-group { background:#d4edda; color:#155724; }
+  thead th.recurring-group { background:#fff3a3; color:#7d6608; }
+  thead th.total-group { background:#fef5e7; color:#b7760d; }
+  thead th.pl-sum { background:#c8e6c9 !important; color:#1a5722 !important; }
+  thead th.rec-sum { background:#fff176 !important; color:#7d6608 !important; }
+  tbody tr { border-bottom:1px solid #f0f4f8; }
+  tbody tr.total-row { font-weight:700; background:#f8fafc; border-top:2px solid #e2e8f0; }
+  tbody td { padding:5px 6px; text-align:right; font-size:11px; color:#2d3748; }
+  tbody td.left { text-align:left; font-weight:600; }
+  .risk-val { color:#c0392b; font-weight:500; }
+  .solid-val { color:#27ae60; font-weight:500; }
+  .won-val { color:#2d7dd2; font-weight:500; }
+  .pipeline-col { background:#e8f5e9; font-weight:700; color:#1a5fa5; }
+  .recurring-col { background:#fffde7; font-weight:700; color:#7d6608; }
+  .pct-val { color:#8e44ad; font-weight:600; }
+  .charts-row { display:grid; grid-template-columns:1fr 1fr 300px; gap:8px; margin-bottom:10px; }
+  .chart-container { position:relative; width:100%; }
+  .footnote { background:white; border-radius:10px; padding:8px 16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); font-size:11px; color:#4a5568; }
+  .footnote strong { color:#1a2332; }
+  .footnote ul { list-style:none; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:2px; margin-top:4px; }
+  .footnote ul li { padding:2px 0 2px 14px; position:relative; }
+  .footnote ul li::before { content:'✓'; position:absolute; left:0; color:#28a074; font-weight:700; }
+  .mini-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:6px; font-size:10px; color:#4a5568; }
+  .mini-legend span { display:flex; align-items:center; gap:4px; }
+  .leg-box { width:9px; height:9px; border-radius:2px; display:inline-block; }
+  .top5-bar { margin-bottom:5px; }
+  .top5-label { font-size:10px; color:#4a5568; margin-bottom:2px; display:flex; justify-content:space-between; }
+  .top5-track { background:#f0f4f8; border-radius:3px; height:18px; overflow:hidden; }
+  .top5-fill { height:100%; border-radius:3px; display:flex; align-items:center; padding-left:6px; font-size:9px; font-weight:600; color:white; }
+  .stat-box { border-radius:6px; padding:6px 10px; border-left:3px solid; }
+  .stat-box .sl { font-size:9px; font-weight:600; margin-bottom:1px; }
+  .stat-box .sv { font-size:13px; font-weight:700; }
+  .stat-box .sp { font-size:9px; color:#7f8fa4; }
+</style></head><body>
+<div id="scaler">
+<div class="header" style="background:linear-gradient(135deg,#1a4731 0%,#2d7a52 60%,#1a4731 100%);">
+  <h1>ภาพรวม Pipeline และ Recurring แยกตามส่วนธุรกิจลูกค้าเอกชน</h1>
+  <div class="subtitle">อ้างอิงจากข้อมูลในระบบ Salesforce</div>
+  <div class="badge">วันที่ 15 พฤษภาคม 2569</div>
+</div>
+<div class="summary-row">
+  <div class="sum-card pipeline"><div class="card-label">รวม Pipeline</div><div class="card-value">235.43M</div><div class="card-sub">บาท (57.03%)</div></div>
+  <div class="sum-card recurring"><div class="card-label">รวม Recurring*</div><div class="card-value">177.37M</div><div class="card-sub">บาท (42.97%)</div></div>
+  <div class="sum-card total"><div class="card-label">รวม Pipeline + Recurring</div><div class="card-value">412.79M</div><div class="card-sub">บาท (100%)</div></div>
+  <div class="sum-card top"><div class="card-label">สัดส่วนรวมสูงสุด</div><div class="card-value">เอกชน 7</div><div class="card-sub">114.94M (27.84%)</div></div></div>
+<div class="section">
+  <div class="section-title"><span class="blue"></span>ตารางรายละเอียด Pipeline และ Recurring (บาท)</div>
+  <table><thead>
+    <tr>
+      <th class="left" rowspan="2" style="width:115px;">ส่วน</th>
+      <th colspan="4" class="pipeline-group">PIPELINE (บาท)</th>
+      <th colspan="6" class="recurring-group">RECURRING (บาท)</th>
+      <th class="total-group" rowspan="2">% ต่อ Total</th>
+    </tr>
+    <tr>
+      <th class="pipeline-group">Pipeline ยังไม่แน่นอน</th>
+      <th class="pipeline-group">Pipeline มีโอกาสต้องติดตามใกล้ชิด</th>
+      <th class="pipeline-group">Pipeline โอกาสสูง</th>
+      <th class="pipeline-group pl-sum">Pipeline ทั้งหมด</th>
+      <th class="recurring-group">Recurring Risk</th><th class="recurring-group">Recurring Medium</th><th class="recurring-group">Recurring Solid</th><th class="recurring-group">ไม่ต่อสัญญาแล้ว Closed Lost</th><th class="recurring-group">ต่อสัญญาแน่ Closed Won</th><th class="recurring-group rec-sum">ต่อสัญญาทั้งหมด Recurring*</th>
+    </tr>
+  </thead><tbody>
+      <tr><td class="left">เอกชน 1</td><td>9,584,802</td><td>-</td><td>-</td><td class="pipeline-col">9,584,802</td><td class="risk-val">16,009,596</td><td class="">-</td><td class="solid-val">-</td><td class="">500</td><td class="won-val">31,217,816</td><td class="recurring-col">47,227,412</td><td class="pct-val">13.76%</td></tr>
+      <tr><td class="left">เอกชน 2</td><td>5,560,330</td><td>-</td><td>-</td><td class="pipeline-col">5,560,330</td><td class="risk-val">5,580</td><td class="">-</td><td class="solid-val">700,000</td><td class="">-</td><td class="won-val">4,000</td><td class="recurring-col">709,580</td><td class="pct-val">1.52%</td></tr>
+      <tr><td class="left">เอกชน 3</td><td>153,470</td><td>-</td><td>-</td><td class="pipeline-col">153,470</td><td class="risk-val">-</td><td class="">-</td><td class="solid-val">-</td><td class="">-</td><td class="won-val">-</td><td class="recurring-col">-</td><td class="pct-val">0.04%</td></tr>
+      <tr><td class="left">เอกชน 4</td><td>30,687,756</td><td>-</td><td>389,570</td><td class="pipeline-col">31,077,326</td><td class="risk-val">6,478,890</td><td class="">-</td><td class="solid-val">-</td><td class="">-</td><td class="won-val">4,095,757</td><td class="recurring-col">10,574,647</td><td class="pct-val">10.09%</td></tr>
+      <tr><td class="left">เอกชน 5</td><td>270,866</td><td>-</td><td>-</td><td class="pipeline-col">270,866</td><td class="risk-val">-</td><td class="">-</td><td class="solid-val">-</td><td class="">-</td><td class="won-val">1,000</td><td class="recurring-col">1,000</td><td class="pct-val">0.07%</td></tr>
+      <tr><td class="left">เอกชน 6</td><td>7,511,450</td><td>-</td><td>83,600</td><td class="pipeline-col">7,595,050</td><td class="risk-val">-</td><td class="">-</td><td class="solid-val">255,210</td><td class="">-</td><td class="won-val">255,210</td><td class="recurring-col">510,420</td><td class="pct-val">1.96%</td></tr>
+      <tr><td class="left">เอกชน 7</td><td>28,485,556</td><td>550,000</td><td>13,971,120</td><td class="pipeline-col">43,006,676</td><td class="risk-val">15,260,400</td><td class="">-</td><td class="solid-val">3,134,444</td><td class="">-</td><td class="won-val">53,540,252</td><td class="recurring-col">71,935,096</td><td class="pct-val">27.84%</td></tr>
+      <tr><td class="left">เอกชน 8</td><td>12,624,163</td><td>97,000</td><td>1,498,223</td><td class="pipeline-col">14,219,386</td><td class="risk-val">-</td><td class="">-</td><td class="solid-val">-</td><td class="">-</td><td class="won-val">-</td><td class="recurring-col">-</td><td class="pct-val">3.44%</td></tr>
+      <tr><td class="left">เอกชน 9</td><td>88,442,860</td><td>-</td><td>3,859,133</td><td class="pipeline-col">92,301,993</td><td class="risk-val">2,014,897</td><td class="">3,340,000</td><td class="solid-val">12,000</td><td class="">32,800</td><td class="won-val">6,124,664</td><td class="recurring-col">11,491,561</td><td class="pct-val">25.14%</td></tr>
+      <tr><td class="left">เอกชน 10</td><td>27,267,280</td><td>1,200,000</td><td>3,190,292</td><td class="pipeline-col">31,657,572</td><td class="risk-val">9,855,000</td><td class="">16,803,000</td><td class="solid-val">1,512,000</td><td class="">-</td><td class="won-val">6,746,694</td><td class="recurring-col">34,916,694</td><td class="pct-val">16.13%</td></tr>
+      <tr class="total-row"><td class="left">TOTAL</td><td>210,588,533</td><td>1,847,000</td><td>22,991,938</td><td class="pipeline-col">235,427,471</td><td class="risk-val">49,624,363</td><td class="">20,143,000</td><td class="solid-val">5,613,654</td><td class="">33,300</td><td class="won-val">101,985,393</td><td class="recurring-col">177,366,410</td><td class="pct-val">100.00%</td></tr>
+  </tbody></table>
+  <p style="font-size:9px;color:#9aa5b4;margin-top:4px;">* ต่อสัญญาทั้งหมด Recurring = ไม่นับ Closed Lost | % ต่อ Total = (Pipeline + Recurring) ÷ ยอดรวมทั้งหมด</p>
+</div>
+<div class="charts-row">
+  <div class="section">
+    <div class="section-title"><span class="blue"></span>PIPELINE แยกตามส่วนธุรกิจ (ล้านบาท)</div>
+    <div class="mini-legend">
+      <span><span class="leg-box" style="background:#93c4e8;"></span>ยังไม่แน่นอน</span>
+      <span><span class="leg-box" style="background:#f5c842;"></span>ต้องติดตามใกล้ชิด</span>
+      <span><span class="leg-box" style="background:#5aae7e;"></span>โอกาสสูง</span>
+    </div>
+    <div class="chart-container" style="height:200px;"><canvas id="plChart" role="img" aria-label="Pipeline"></canvas></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;"><div class="stat-box" style="background:#e8f4fd;border-color:#93c4e8;"><div class="sl" style="color:#5b8db8;">ยังไม่แน่นอน</div><div class="sv" style="color:#1a5fa5;">210.59M</div><div class="sp">89.45%</div></div><div class="stat-box" style="background:#fffde7;border-color:#f5c842;"><div class="sl" style="color:#9a7d0a;">ต้องติดตามใกล้ชิด</div><div class="sv" style="color:#7d6608;">1.85M</div><div class="sp">0.78%</div></div><div class="stat-box" style="background:#e8f5e9;border-color:#5aae7e;"><div class="sl" style="color:#2e7d52;">โอกาสสูง</div><div class="sv" style="color:#1a6b3c;">22.99M</div><div class="sp">9.77%</div></div><div class="stat-box" style="background:#e3f0fb;border-color:#2d7dd2;"><div class="sl" style="color:#1a5fa5;">รวม Pipeline</div><div class="sv" style="color:#1a5fa5;">235.43M</div><div class="sp">100%</div></div></div>
+  </div>
+  <div class="section">
+    <div class="section-title"><span class="green"></span>RECURRING แยกตามส่วนธุรกิจ (ล้านบาท)</div>
+    <div class="mini-legend">
+      <span><span class="leg-box" style="background:#e74c3c;"></span>Risk</span>
+      <span><span class="leg-box" style="background:#f39c12;"></span>Medium</span>
+      <span><span class="leg-box" style="background:#27ae60;"></span>Solid</span>
+      <span><span class="leg-box" style="background:#2d7dd2;"></span>Closed Won</span>
+    </div>
+    <div class="chart-container" style="height:200px;"><canvas id="recChart" role="img" aria-label="Recurring"></canvas></div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px;"><div class="stat-box" style="background:#fdf0ef;border-color:#e74c3c;"><div class="sl" style="color:#a93226;">Recurring Risk</div><div class="sv" style="color:#c0392b;">49.62M</div><div class="sp">27.98%</div></div><div class="stat-box" style="background:#fff8e8;border-color:#f39c12;"><div class="sl" style="color:#9a6a00;">Recurring Medium</div><div class="sv" style="color:#b7770d;">20.14M</div><div class="sp">11.36%</div></div><div class="stat-box" style="background:#e8f5e9;border-color:#27ae60;"><div class="sl" style="color:#1e8449;">Recurring Solid</div><div class="sv" style="color:#1a6b3c;">5.61M</div><div class="sp">3.17%</div></div><div class="stat-box" style="background:#e3f0fb;border-color:#2d7dd2;"><div class="sl" style="color:#1a5fa5;">ต่อสัญญาแน่ Closed Won</div><div class="sv" style="color:#1a5fa5;">101.99M</div><div class="sp">57.50%</div></div><div class="stat-box" style="background:#fffde7;border-color:#f5c842;"><div class="sl" style="color:#7d6608;">รวม Recurring*</div><div class="sv" style="color:#7d6608;">177.37M</div><div class="sp">100%</div></div></div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <div class="section" style="flex:1;">
+      <div class="section-title"><span class="orange"></span>TOP 5 รวมยอด (Pipeline + Recurring)</div>
+      <div id="top5bars"></div>
+    </div>
+    <div class="section" style="flex:1;">
+      <div class="section-title"><span class="purple"></span>สรุปภาพรวม</div>
+      <div class="chart-container" style="height:100px;"><canvas id="donutChart" role="img" aria-label="Donut"></canvas></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">
+        <div style="background:#f0f4f8;border-radius:6px;padding:6px 10px;text-align:center;">
+          <div style="font-size:9px;color:#7f8fa4;margin-bottom:2px;">รวม Pipeline</div>
+          <div style="font-size:13px;font-weight:700;color:#2d7dd2;">235.43M</div>
+          <div style="font-size:9px;color:#9aa5b4;">57.03%</div>
+        </div>
+        <div style="background:#f0f4f8;border-radius:6px;padding:6px 10px;text-align:center;">
+          <div style="font-size:9px;color:#7f8fa4;margin-bottom:2px;">รวม Recurring*</div>
+          <div style="font-size:13px;font-weight:700;color:#28a074;">177.37M</div>
+          <div style="font-size:9px;color:#9aa5b4;">42.97%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="footnote"><strong>ข้อมูลสรุปสำคัญ</strong><ul>    <li>Pipeline รวม 235.43M | เอกชน 9 สูงสุด 92.30M (22.36%)</li>
+    <li>Recurring* รวม 177.37M | เอกชน 7 สูงสุด 71.94M (17.43%)</li>
+    <li>Recurring Risk รวม 49.62M | เอกชน 1 มีความเสี่ยงสูงสุด 16.01M</li>
+    <li>มี Closed Lost รวม 33,300 บาท (เอกชน 1: 500, เอกชน 9: 32,800)</li></ul></div>
+</div>
+<script>
+(function(){
+  var s=document.getElementById("scaler");
+  function fit(){var sc=Math.min(window.innerHeight/s.offsetHeight,window.innerWidth/1400);s.style.transform="scale("+sc+")";}
+  window.addEventListener("resize",fit);
+  window.addEventListener("load",function(){setTimeout(fit,600);});
+  setTimeout(fit,300); setTimeout(fit,1200);
+})();
+</script>
+<script>
+
+const stackedLabelPlugin={id:'stackedLabel',afterDatasetsDraw(chart){
+  if(!chart._plData)return;
+  const{unc,fol,hig}=chart._plData,ctx=chart.ctx;
+  chart.getDatasetMeta(0).data.forEach((bar,i)=>{
+    const total=unc[i]+fol[i]+hig[i];if(total<=0)return;
+    const x=chart.scales.x.getPixelForValue(total),y=bar.y;
+    ctx.save();ctx.fillStyle='#1a2332';ctx.font='600 9px Sarabun,sans-serif';
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText(total.toFixed(1)+'M',x+3,y);ctx.restore();
+  });
+}};
+const recLabelPlugin={id:'recLabel',afterDatasetsDraw(chart){
+  if(!chart._recData)return;
+  const{risk,med,solid,won}=chart._recData,ctx=chart.ctx;
+  const lastIdx=chart.data.datasets.length-1;
+  chart.getDatasetMeta(lastIdx).data.forEach((bar,i)=>{
+    const total=risk[i]+med[i]+solid[i]+won[i];if(total<=0)return;
+    const x=chart.scales.x.getPixelForValue(total),y=bar.y;
+    ctx.save();ctx.fillStyle='#1a2332';ctx.font='600 9px Sarabun,sans-serif';
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText(total.toFixed(1)+'M',x+3,y);ctx.restore();
+  });
+}};
+const plUnc=[88.44, 28.49, 27.27, 30.69, 12.62, 9.58, 7.51, 5.56, 0.27, 0.15],plFol=[0.0, 0.55, 1.2, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0],plHig=[3.86, 13.97, 3.19, 0.39, 1.5, 0.0, 0.08, 0.0, 0.0, 0.0];
+const plC=new Chart(document.getElementById('plChart'),{type:'bar',plugins:[stackedLabelPlugin],
+  data:{labels:["เอกชน 9", "เอกชน 7", "เอกชน 10", "เอกชน 4", "เอกชน 8", "เอกชน 1", "เอกชน 6", "เอกชน 2", "เอกชน 5", "เอกชน 3"],datasets:[
+    {label:'ยังไม่แน่นอน',data:plUnc,backgroundColor:'#93c4e8',borderRadius:2},
+    {label:'ต้องติดตามใกล้ชิด',data:plFol,backgroundColor:'#f5c842',borderRadius:2},
+    {label:'โอกาสสูง',data:plHig,backgroundColor:'#5aae7e',borderRadius:2},
+  ]},
+  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:60}},
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+ctx.parsed.x.toFixed(2)+'M'}}},
+    scales:{x:{stacked:true,ticks:{font:{size:9},callback:v=>v+'M'},grid:{color:'#f0f4f8'}},y:{stacked:true,ticks:{font:{size:10}},grid:{display:false}}}
+  }
+});
+plC._plData={unc:plUnc,fol:plFol,hig:plHig};
+const recRisk=[15.26, 16.01, 9.86, 2.01, 6.48, 0.01, 0.0, 0.0, 0.0, 0.0],recMed=[0.0, 0.0, 16.8, 3.34, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],recSolid=[3.13, 0.0, 1.51, 0.01, 0.0, 0.7, 0.26, 0.0, 0.0, 0.0],recWon=[53.54, 31.22, 6.75, 6.12, 4.1, 0.0, 0.26, 0.0, 0.0, 0.0];
+const recC=new Chart(document.getElementById('recChart'),{type:'bar',plugins:[recLabelPlugin],
+  data:{labels:["เอกชน 7", "เอกชน 1", "เอกชน 10", "เอกชน 9", "เอกชน 4", "เอกชน 2", "เอกชน 6", "เอกชน 5", "เอกชน 3", "เอกชน 8"],datasets:[
+    {label:'Risk',data:recRisk,backgroundColor:'#e74c3c',borderRadius:2},
+    {label:'Medium',data:recMed,backgroundColor:'#f39c12',borderRadius:2},
+    {label:'Solid',data:recSolid,backgroundColor:'#27ae60',borderRadius:2},
+    {label:'Closed Won',data:recWon,backgroundColor:'#2d7dd2',borderRadius:2},
+  ]},
+  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:60}},
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+ctx.parsed.x.toFixed(2)+'M'}}},
+    scales:{x:{stacked:true,ticks:{font:{size:9},callback:v=>v+'M'},grid:{color:'#f0f4f8'}},y:{stacked:true,ticks:{font:{size:10}},grid:{display:false}}}
+  }
+});
+recC._recData={risk:recRisk,med:recMed,solid:recSolid,won:recWon};
+const c=document.getElementById('top5bars');
+  c.innerHTML+=`<div class='top5-bar'><div class='top5-label'><span>เอกชน 7</span><span>114.94M (27.8%)</span></div><div class='top5-track'><div class='top5-fill' style='width:95.0%;background:#2d7dd2;'>27.8%</div></div></div>`;
+  c.innerHTML+=`<div class='top5-bar'><div class='top5-label'><span>เอกชน 9</span><span>103.79M (25.1%)</span></div><div class='top5-track'><div class='top5-fill' style='width:85.8%;background:#2d7dd2;'>25.1%</div></div></div>`;
+  c.innerHTML+=`<div class='top5-bar'><div class='top5-label'><span>เอกชน 10</span><span>66.57M (16.1%)</span></div><div class='top5-track'><div class='top5-fill' style='width:55.0%;background:#2d7dd2;'>16.1%</div></div></div>`;
+  c.innerHTML+=`<div class='top5-bar'><div class='top5-label'><span>เอกชน 1</span><span>56.81M (13.8%)</span></div><div class='top5-track'><div class='top5-fill' style='width:47.0%;background:#2d7dd2;'>13.8%</div></div></div>`;
+  c.innerHTML+=`<div class='top5-bar'><div class='top5-label'><span>เอกชน 4</span><span>41.65M (10.1%)</span></div><div class='top5-track'><div class='top5-fill' style='width:34.4%;background:#2d7dd2;'>10.1%</div></div></div>`;
+new Chart(document.getElementById('donutChart'),{type:'doughnut',
+  data:{labels:['Pipeline','Recurring'],datasets:[{data:[57.03,42.97],backgroundColor:['#2d7dd2','#28a074'],borderWidth:2,borderColor:'#fff'}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'right',labels:{font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:ctx=>' '+ctx.parsed.toFixed(1)+'%'}}}}
+});
+</script></body></html>
